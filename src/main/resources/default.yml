@@ -1,0 +1,21 @@
+# Display name of this currency
+name: "Default Currency"
+
+# Command that will be registered for this currency
+command: "default"
+
+# Should this currency support decimals?
+decimals: false
+
+# Balance new players start with
+start-balance: 0
+
+# Worlds where this currency is disabled
+# Commands and balance changes should be blocked there
+disabled-worlds:
+  - example_world
+
+balances:
+  00000000-0000-0000-0000-000000000000:
+    name: "Player"
+    balance: 0

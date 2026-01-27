@@ -1,0 +1,8 @@
+name: SimpleCurrencies
+version: '1.0'
+main: de.nitrox.SimpleCurrencies.SimpleCurrencies
+api-version: '1.16'
+load: STARTUP
+authors: [ Nitrox_XD ]
+description: A multi Currencies Plugin
+depend: [PlaceholderAPI]
