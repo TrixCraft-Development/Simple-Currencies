@@ -5,4 +5,4 @@ api-version: '1.16'
 load: STARTUP
 authors: [ Nitrox_XD ]
 description: A multi Currencies Plugin
-depend: [PlaceholderAPI]
+softdepend: [PlaceholderAPI]
