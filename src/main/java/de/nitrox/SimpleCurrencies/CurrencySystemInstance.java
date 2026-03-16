@@ -3,6 +3,8 @@ package de.nitrox.SimpleCurrencies;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
@@ -63,6 +65,11 @@ public class CurrencySystemInstance {
 
 
     public void setBalance(UUID uuid, String name, double value) {
+        double maxBalance = getMaxBalance(uuid);
+        if (maxBalance > 0) {
+            value = Math.min(value, maxBalance);
+        }
+
         if (!decimals) {
             value = Math.floor(value);
         }
@@ -81,6 +88,33 @@ public class CurrencySystemInstance {
     public void remove(UUID uuid, String name, double value) {
         setBalance(uuid, name, Math.max(0, getBalance(uuid) - value));
         save();
+    }
+
+    public double getMaxBalance(UUID uuid) {
+        double max = config.getDouble("max-balance", 0);
+
+        ConfigurationSection section = config.getConfigurationSection("max-balance-permissions");
+        if (section == null) {
+            return max;
+        }
+
+        Player player = Bukkit.getPlayer(uuid);
+        if (player == null) {
+            return max;
+        }
+
+        for (String permission : section.getKeys(false)) {
+            double value = section.getDouble(permission, max);
+            if (player.hasPermission(permission) && value > max) {
+                max = value;
+            }
+        }
+
+        return max;
+    }
+
+    public double getDefaultMaxBalance() {
+        return config.getDouble("max-balance", 0);
     }
 
     public void wipe() {

@@ -56,7 +56,7 @@ public class CurrencySystemManager {
                     sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " remove <player> <amount>");
                     sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " balance [player]");
                     sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " wipe");
-                    sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " transfer <currency>");
+                    sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " transfer <system>");
                 })
                 .withSubcommand(new CommandAPICommand("give")
                         .withPermission("simplecurrencies.give")

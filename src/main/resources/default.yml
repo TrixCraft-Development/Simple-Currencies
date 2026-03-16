@@ -10,6 +10,14 @@ decimals: false
 # Balance new players start with
 start-balance: 0
 
+# Maximum balance for players (<= 0 means unlimited)
+max-balance: 0
+
+# Custom maximum balances by permission
+# If a player has multiple permissions, the highest value wins
+max-balance-permissions:
+  simplecurrencies.maxbalance.premium: 10000
+
 # Worlds where this currency is disabled
 # Commands and balance changes should be blocked there
 disabled-worlds:

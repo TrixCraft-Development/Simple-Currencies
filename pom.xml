@@ -6,7 +6,7 @@
 
     <groupId>de.nitrox</groupId>
     <artifactId>SimpleCurrencies</artifactId>
-    <version>1.0</version>
+    <version>1.1</version>
     <packaging>jar</packaging>
 
     <name>simplecurrencies</name>

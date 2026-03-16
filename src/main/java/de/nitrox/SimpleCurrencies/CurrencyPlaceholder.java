@@ -47,6 +47,10 @@ public class CurrencyPlaceholder extends PlaceholderExpansion {
             String systemid = params.substring(0, params.length() - "_balance".length());
             return handleBalance(systemid, player);
         }
+        if (params.endsWith("_max_balance")) {
+            String systemid = params.substring(0, params.length() - "_max_balance".length());
+            return handleMaxBalance(systemid);
+        }
         return null;
     }
 
@@ -70,5 +74,12 @@ public class CurrencyPlaceholder extends PlaceholderExpansion {
         double globalbalance = inst.getGlobalBalance();
         return String.valueOf(globalbalance);
 
+    }
+
+    private String handleMaxBalance(String systemid) {
+        CurrencySystemInstance inst = plugin.getManager().get(systemid);
+        if (inst == null) return null;
+        double maxBalance = inst.getDefaultMaxBalance();
+        return String.valueOf(maxBalance);
     }
 }
