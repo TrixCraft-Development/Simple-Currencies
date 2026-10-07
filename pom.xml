@@ -6,14 +6,14 @@
 
     <groupId>de.nitrox</groupId>
     <artifactId>SimpleCurrencies</artifactId>
-    <version>1.1</version>
+    <version>1.2</version>
     <packaging>jar</packaging>
 
     <name>simplecurrencies</name>
 
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -25,8 +25,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <source>17</source>
-                    <target>17</target>
+                    <release>21</release>
                 </configuration>
             </plugin>
 
@@ -55,6 +54,10 @@
 
     <repositories>
         <repository>
+            <id>papermc-repo</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/groups/public/</url>
         </repository>
@@ -65,11 +68,11 @@
     </repositories>
 
     <dependencies>
-        <!-- Spigot API: lowest supported version -->
+        <!-- Paper API: lowest supported version in the 1.21 family -->
         <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot-api</artifactId>
-            <version>1.16.5-R0.1-SNAPSHOT</version>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>1.21-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
 
@@ -81,11 +84,11 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- CommandAPI (shaded, multi-version) -->
+        <!-- CommandAPI (shaded, Paper-only, MC 1.20.6 - 26.3) -->
         <dependency>
             <groupId>dev.jorel</groupId>
-            <artifactId>commandapi-bukkit-shade</artifactId>
-            <version>9.7.0</version>
+            <artifactId>commandapi-paper-shade</artifactId>
+            <version>12.1.0</version>
         </dependency>
     </dependencies>
 </project>

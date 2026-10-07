@@ -1,7 +1,7 @@
 package de.nitrox.SimpleCurrencies;
 
 import dev.jorel.commandapi.CommandAPI;
-import dev.jorel.commandapi.CommandAPIBukkitConfig;
+import dev.jorel.commandapi.CommandAPIPaperConfig;
 import dev.jorel.commandapi.CommandAPICommand;
 import dev.jorel.commandapi.arguments.ArgumentSuggestions;
 import dev.jorel.commandapi.arguments.StringArgument;
@@ -16,7 +16,7 @@ public final class SimpleCurrencies extends JavaPlugin {
     @Override
     public void onLoad() {
         CommandAPI.onLoad(
-                new CommandAPIBukkitConfig(this)
+                new CommandAPIPaperConfig(this)
                         .verboseOutput(false)
         );
     }

@@ -2,7 +2,7 @@ package de.nitrox.SimpleCurrencies;
 
 import dev.jorel.commandapi.CommandAPICommand;
 import dev.jorel.commandapi.arguments.DoubleArgument;
-import dev.jorel.commandapi.arguments.PlayerArgument;
+import dev.jorel.commandapi.arguments.EntitySelectorArgument;
 import dev.jorel.commandapi.arguments.StringArgument;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -26,13 +26,15 @@ public class CurrencySystemManager {
         File folder = plugin.getDataFolder();
         if (!folder.exists()) folder.mkdirs();
 
-        File defaultFile = new File(folder, "default.yml");
-        if (!defaultFile.exists()) {
-            plugin.saveResource("default.yml", false);
-        }
-
         File[] files = folder.listFiles((dir, name) -> name.endsWith(".yml"));
         if (files == null) return;
+
+        // Only create default.yml on first run / when the folder has no .yml files
+        if (files.length == 0) {
+            plugin.saveResource("default.yml", false);
+            files = folder.listFiles((dir, name) -> name.endsWith(".yml"));
+            if (files == null) return;
+        }
 
         for (File file : files) {
             String id = file.getName().replace(".yml", "");
@@ -61,7 +63,7 @@ public class CurrencySystemManager {
                 .withSubcommand(new CommandAPICommand("give")
                         .withPermission("simplecurrencies.give")
                         .withArguments(
-                                new PlayerArgument("player"),
+                                new EntitySelectorArgument.OnePlayer("player"),
                                 new DoubleArgument("amount")
                         )
                         .executes((sender, args) -> {
@@ -81,7 +83,7 @@ public class CurrencySystemManager {
                 .withSubcommand(new CommandAPICommand("remove")
                         .withPermission("simplecurrencies.remove")
                         .withArguments(
-                                new PlayerArgument("player"),
+                                new EntitySelectorArgument.OnePlayer("player"),
                                 new DoubleArgument("amount")
                         )
                         .executes((sender, args) -> {
@@ -99,7 +101,7 @@ public class CurrencySystemManager {
                         })
                 )
                 .withSubcommand(new CommandAPICommand("balance")
-                        .withOptionalArguments(new PlayerArgument("player"))
+                        .withOptionalArguments(new EntitySelectorArgument.OnePlayer("player"))
                         .executes((sender, args) -> {
                             Player target = (Player) args.get("player");
 

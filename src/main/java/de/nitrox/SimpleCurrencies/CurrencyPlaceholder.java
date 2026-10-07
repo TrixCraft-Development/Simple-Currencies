@@ -57,29 +57,24 @@ public class CurrencyPlaceholder extends PlaceholderExpansion {
     private String handleBalance(String systemid, Player player) {
         CurrencySystemInstance inst = plugin.getManager().get(systemid);
         if (inst == null) return null;
-        double balance = inst.getBalance(player.getUniqueId());
-        return String.valueOf(balance);
+        return inst.getBalanceString(player.getUniqueId());
     }
 
     private String handleBalanceFormatted(String systemid, Player player) {
         CurrencySystemInstance inst = plugin.getManager().get(systemid);
         if (inst == null) return null;
-        String balanceFormatted = inst.getBalanceFormatted(player.getUniqueId());
-        return String.valueOf(balanceFormatted);
+        return inst.getBalanceFormatted(player.getUniqueId());
     }
 
     private String handleGlobalBalance(String systemid, Player player) {
         CurrencySystemInstance inst = plugin.getManager().get(systemid);
         if (inst == null) return null;
-        double globalbalance = inst.getGlobalBalance();
-        return String.valueOf(globalbalance);
-
+        return inst.getGlobalBalanceString();
     }
 
     private String handleMaxBalance(String systemid) {
         CurrencySystemInstance inst = plugin.getManager().get(systemid);
         if (inst == null) return null;
-        double maxBalance = inst.getDefaultMaxBalance();
-        return String.valueOf(maxBalance);
+        return inst.getDefaultMaxBalanceString();
     }
 }

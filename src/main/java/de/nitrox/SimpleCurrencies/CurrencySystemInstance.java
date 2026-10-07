@@ -40,7 +40,26 @@ public class CurrencySystemInstance {
 
     public String getBalanceFormatted(UUID uuid) {
         double balance = getBalance(uuid);
-        return String.format(Locale.US, "%.2f %s", balance, name);
+        return formatNumber(balance) + " " + name;
+    }
+
+    public String getBalanceString(UUID uuid) {
+        return formatNumber(getBalance(uuid));
+    }
+
+    public String getGlobalBalanceString() {
+        return formatNumber(getGlobalBalance());
+    }
+
+    public String getDefaultMaxBalanceString() {
+        return formatNumber(getDefaultMaxBalance());
+    }
+
+    private String formatNumber(double value) {
+        if (!decimals) {
+            return String.valueOf((long) Math.floor(value));
+        }
+        return String.valueOf(value);
     }
 
     public double getGlobalBalance() {
