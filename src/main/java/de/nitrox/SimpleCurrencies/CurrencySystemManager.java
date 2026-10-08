@@ -76,7 +76,7 @@ public class CurrencySystemManager {
                                     amount
                             );
                             system.save();
-                            sender.sendMessage(ChatColor.GREEN + "Added " + amount + " to " + target.getName()
+                            sender.sendMessage(ChatColor.GREEN + "Added " + system.formatNumber(amount) + " to " + target.getName()
                             );
                         })
                 )
@@ -96,7 +96,7 @@ public class CurrencySystemManager {
                                     amount
                             );
                             system.save();
-                            sender.sendMessage(ChatColor.GREEN + "Removed " + amount + " from " + target.getName()
+                            sender.sendMessage(ChatColor.GREEN + "Removed " + system.formatNumber(amount) + " from " + target.getName()
                             );
                         })
                 )
@@ -114,7 +114,7 @@ public class CurrencySystemManager {
                             }
 
                             sender.sendMessage(
-                                    ChatColor.GREEN + "Balance: " + system.getBalance(target.getUniqueId())
+                                    ChatColor.GREEN + "Balance: " + system.getBalanceString(target.getUniqueId())
                             );
                         })
                 )

@@ -55,7 +55,7 @@ public class CurrencySystemInstance {
         return formatNumber(getDefaultMaxBalance());
     }
 
-    private String formatNumber(double value) {
+    public String formatNumber(double value) {
         if (!decimals) {
             return String.valueOf((long) Math.floor(value));
         }
