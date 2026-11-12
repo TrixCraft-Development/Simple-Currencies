@@ -23,6 +23,10 @@ max-balance-permissions:
 disabled-worlds:
   - example_world
 
+# Exchange rates when transferring this currency to another currency
+# Format: <target_currency_id>: <rate> (1 unit of this currency = <rate> units of target currency)
+exchange-rates: {}
+
 balances:
   00000000-0000-0000-0000-000000000000:
     name: "Player"

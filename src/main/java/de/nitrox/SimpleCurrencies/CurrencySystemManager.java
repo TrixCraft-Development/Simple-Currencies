@@ -1,6 +1,7 @@
 package de.nitrox.SimpleCurrencies;
 
 import dev.jorel.commandapi.CommandAPICommand;
+import dev.jorel.commandapi.arguments.ArgumentSuggestions;
 import dev.jorel.commandapi.arguments.DoubleArgument;
 import dev.jorel.commandapi.arguments.EntitySelectorArgument;
 import dev.jorel.commandapi.arguments.StringArgument;
@@ -53,12 +54,18 @@ public class CurrencySystemManager {
 
         new CommandAPICommand(system.getCommand())
                 .executes((sender, args) -> {
-                    sender.sendMessage(ChatColor.GREEN + "=== " + ChatColor.GRAY +"SimpleCurrencies Commands for " + system.getCommand() + ChatColor.GREEN + " ===");
-                    sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " give <player> <amount>");
-                    sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " remove <player> <amount>");
-                    sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " balance [player]");
-                    sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " wipe");
-                    sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " transfer <system>");
+                    if (sender instanceof Player player) {
+                        sender.sendMessage(
+                                ChatColor.GREEN + "Balance: " + system.getBalanceFormatted(player.getUniqueId())
+                        );
+                    } else {
+                        sender.sendMessage(ChatColor.GREEN + "=== " + ChatColor.GRAY + "SimpleCurrencies Commands for " + system.getCommand() + ChatColor.GREEN + " ===");
+                        sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " give <player> <amount>");
+                        sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " remove <player> <amount>");
+                        sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " balance [player]");
+                        sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " wipe");
+                        sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " transfer <system> [rate]");
+                    }
                 })
                 .withSubcommand(new CommandAPICommand("give")
                         .withPermission("simplecurrencies.give")
@@ -128,7 +135,17 @@ public class CurrencySystemManager {
                 )
                 .withSubcommand(new CommandAPICommand("transfer")
                         .withPermission("simplecurrencies.transfer")
-                        .withArguments(new StringArgument("targetCurrency"))
+                        .withArguments(
+                                new StringArgument("targetCurrency")
+                                        .replaceSuggestions(
+                                                ArgumentSuggestions.stringCollection(
+                                                        info -> systems.keySet().stream()
+                                                                .filter(id -> !id.equalsIgnoreCase(system.getId()))
+                                                                .toList()
+                                                )
+                                        )
+                        )
+                        .withOptionalArguments(new DoubleArgument("rate"))
                         .executes((sender, args) -> {
                             String targetId = (String) args.get("targetCurrency");
                             CurrencySystemInstance target = systems.get(targetId.toLowerCase());
@@ -138,8 +155,29 @@ public class CurrencySystemManager {
                                 return;
                             }
 
-                            system.transferTo(target);
-                            sender.sendMessage(ChatColor.GREEN + "Transferred currency to " + targetId);
+                            if (target.getId().equalsIgnoreCase(system.getId())) {
+                                sender.sendMessage(ChatColor.RED + "Cannot transfer a currency to itself.");
+                                return;
+                            }
+
+                            Double rateArg = (Double) args.get("rate");
+                            double rate;
+                            if (rateArg != null) {
+                                if (!CurrencySystemInstance.isValidRate(rateArg)) {
+                                    sender.sendMessage(ChatColor.RED + "Exchange rate must be greater than 0.");
+                                    return;
+                                }
+                                rate = rateArg;
+                            } else {
+                                rate = system.getExchangeRate(target.getId());
+                            }
+
+                            system.transferTo(target, rate);
+                            sender.sendMessage(
+                                    ChatColor.GREEN + "Transferred " + system.getId() + " to " + target.getId()
+                                            + " (rate: 1 " + system.getId() + " = "
+                                            + CurrencySystemInstance.formatRate(rate) + " " + target.getId() + ")."
+                            );
                         })
                 )
                 .register();

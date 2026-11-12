@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.*;
 
 public class CurrencySystemInstance {
@@ -22,13 +23,14 @@ public class CurrencySystemInstance {
     private final String name;
 
     private List<String> disabledWorlds = new ArrayList<>();
+    private final Map<String, Double> exchangeRates = new LinkedHashMap<>();
 
     public CurrencySystemInstance(SimpleCurrencies plugin, String id, String name, File file) {
         this.plugin = plugin;
         this.file = file;
+        this.id = file.getName().replace(".yml", "");
         load();
 
-        this.id = file.getName().replace(".yml", "");
         this.command = config.getString("command", id);
         this.decimals = config.getBoolean("decimals", false);
         this.name = config.getString("name", name);
@@ -155,6 +157,29 @@ public class CurrencySystemInstance {
         if (disabledWorlds == null) {
             disabledWorlds = new ArrayList<>();
         }
+
+        exchangeRates.clear();
+        ConfigurationSection ratesSection = config.getConfigurationSection("exchange-rates");
+        if (ratesSection != null) {
+            for (String targetKey : ratesSection.getKeys(false)) {
+                double rate = ratesSection.getDouble(targetKey, -1);
+                if (!isValidRate(rate)) {
+                    plugin.getLogger().warning(
+                            "Invalid exchange rate in " + id + ".yml for target '" + targetKey + "': " + rate
+                    );
+                    continue;
+                }
+                exchangeRates.put(targetKey.toLowerCase(Locale.ROOT), rate);
+            }
+        }
+    }
+
+    public static boolean isValidRate(double rate) {
+        return Double.isFinite(rate) && rate > 0;
+    }
+
+    public static String formatRate(double rate) {
+        return BigDecimal.valueOf(rate).stripTrailingZeros().toPlainString();
     }
 
     public void save() {
@@ -170,6 +195,10 @@ public class CurrencySystemInstance {
         return id;
     }
 
+    public String getName() {
+        return name;
+    }
+
     public String getCommand() {
         return command;
     }
@@ -182,20 +211,97 @@ public class CurrencySystemInstance {
         return config;
     }
 
+    public boolean hasExchangeRate(String targetId) {
+        if (targetId == null) return false;
+        return exchangeRates.containsKey(targetId.toLowerCase(Locale.ROOT));
+    }
+
+    public Double getConfiguredExchangeRate(String targetId) {
+        if (targetId == null) return null;
+        return exchangeRates.get(targetId.toLowerCase(Locale.ROOT));
+    }
+
+    public double getExchangeRate(String targetId) {
+        Double rate = getConfiguredExchangeRate(targetId);
+        return rate != null ? rate : 1.0;
+    }
+
+    public Map<String, Double> getExchangeRates() {
+        return Collections.unmodifiableMap(exchangeRates);
+    }
+
+    public void setExchangeRate(String targetId, double rate) {
+        if (targetId == null || targetId.isBlank()) {
+            throw new IllegalArgumentException("Target currency id must not be blank.");
+        }
+        if (!isValidRate(rate)) {
+            throw new IllegalArgumentException("Exchange rate must be greater than 0.");
+        }
+
+        clearConfiguredRateKeys(targetId);
+        config.set("exchange-rates." + targetId, rate);
+        exchangeRates.put(targetId.toLowerCase(Locale.ROOT), rate);
+        save();
+    }
+
+    public boolean removeExchangeRate(String targetId) {
+        if (targetId == null || !hasExchangeRate(targetId)) {
+            return false;
+        }
+
+        clearConfiguredRateKeys(targetId);
+        exchangeRates.remove(targetId.toLowerCase(Locale.ROOT));
+        save();
+        return true;
+    }
+
+    private void clearConfiguredRateKeys(String targetId) {
+        ConfigurationSection ratesSection = config.getConfigurationSection("exchange-rates");
+        if (ratesSection == null) return;
+
+        for (String existingKey : new ArrayList<>(ratesSection.getKeys(false))) {
+            if (existingKey.equalsIgnoreCase(targetId)) {
+                config.set("exchange-rates." + existingKey, null);
+            }
+        }
+    }
+
     public void transferTo(CurrencySystemInstance target) {
+        transferTo(target, getExchangeRate(target.getId()));
+    }
+
+    public void transferTo(CurrencySystemInstance target, double rate) {
+        if (target == null) {
+            throw new IllegalArgumentException("Target currency must not be null.");
+        }
+        if (target.getId().equalsIgnoreCase(this.id)) {
+            throw new IllegalArgumentException("Cannot transfer a currency to itself.");
+        }
+        if (!isValidRate(rate)) {
+            throw new IllegalArgumentException("Exchange rate must be greater than 0.");
+        }
 
         ConfigurationSection section =
                 config.getConfigurationSection("balances");
 
         if (section == null) return;
 
+        BigDecimal rateDecimal = BigDecimal.valueOf(rate);
+
         for (String key : section.getKeys(false)) {
-            UUID uuid = UUID.fromString(key);
+            UUID uuid;
+            try {
+                uuid = UUID.fromString(key);
+            } catch (IllegalArgumentException e) {
+                plugin.getLogger().warning("Skipping invalid UUID in " + id + ".yml during transfer: " + key);
+                continue;
+            }
 
-            String name = section.getString(key + ".name", "Unknown");
+            String playerName = section.getString(key + ".name", "Unknown");
             double amount = section.getDouble(key + ".balance", 0);
+            double converted = BigDecimal.valueOf(amount).multiply(rateDecimal).doubleValue();
 
-            target.add(uuid, name, amount);
+            target.add(uuid, playerName, converted);
         }
 
         wipe();
