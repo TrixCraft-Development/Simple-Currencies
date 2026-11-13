@@ -65,6 +65,7 @@ public class CurrencySystemManager {
                         sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " balance [player]");
                         sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " wipe");
                         sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " transfer <system> [rate]");
+                        sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " pay <player> <amount>");
                     }
                 })
                 .withSubcommand(new CommandAPICommand("give")
@@ -178,6 +179,28 @@ public class CurrencySystemManager {
                                             + " (rate: 1 " + system.getId() + " = "
                                             + CurrencySystemInstance.formatRate(rate) + " " + target.getId() + ")."
                             );
+                        })
+                )
+                .withSubcommand(new CommandAPICommand("pay")
+                        .withPermission("simplecurrencies.pay")
+                        .withArguments(
+                                new EntitySelectorArgument.OnePlayer("player"),
+                                new DoubleArgument("amount")
+                        )
+                        .executes((sender, args) -> {
+                            if (!(sender instanceof Player player)) {
+                                sender.sendMessage(ChatColor.RED + "Only players can use this command.");
+                                return;
+                            }
+
+                            Player target = (Player) args.get("player");
+                            if (target == null) {
+                                player.sendMessage(ChatColor.RED + "Player not found.");
+                                return;
+                            }
+
+                            double amount = (double) args.get("amount");
+                            system.pay(player, target, amount);
                         })
                 )
                 .register();

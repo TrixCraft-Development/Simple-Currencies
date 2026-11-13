@@ -7,6 +7,9 @@ command: "default"
 # Should this currency support decimals?
 decimals: false
 
+# Can players pay each other using this currency?
+pay-enabled: true
+
 # Balance new players start with
 start-balance: 0
 

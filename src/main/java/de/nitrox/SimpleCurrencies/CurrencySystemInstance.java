@@ -4,6 +4,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 import java.io.File;
@@ -22,6 +23,7 @@ public class CurrencySystemInstance {
     private final boolean decimals;
     private final String name;
 
+    private boolean payEnabled = true;
     private List<String> disabledWorlds = new ArrayList<>();
     private final Map<String, Double> exchangeRates = new LinkedHashMap<>();
 
@@ -153,6 +155,16 @@ public class CurrencySystemInstance {
 
         config = YamlConfiguration.loadConfiguration(file);
 
+        if (config.contains("pay-enabled")) {
+            this.payEnabled = config.getBoolean("pay-enabled", true);
+        } else if (config.contains("payments-enabled")) {
+            this.payEnabled = config.getBoolean("payments-enabled", true);
+        } else if (config.contains("payment-enabled")) {
+            this.payEnabled = config.getBoolean("payment-enabled", true);
+        } else {
+            this.payEnabled = true;
+        }
+
         disabledWorlds = config.getStringList("disabled-worlds");
         if (disabledWorlds == null) {
             disabledWorlds = new ArrayList<>();
@@ -209,6 +221,86 @@ public class CurrencySystemInstance {
 
     public FileConfiguration getConfig() {
         return config;
+    }
+
+    public boolean isPayEnabled() {
+        return payEnabled;
+    }
+
+    public boolean isPaymentsEnabled() {
+        return isPayEnabled();
+    }
+
+    public void setPayEnabled(boolean payEnabled) {
+        this.payEnabled = payEnabled;
+        config.set("pay-enabled", payEnabled);
+        save();
+    }
+
+    public boolean pay(Player sender, Player target, double amount) {
+        if (!payEnabled) {
+            sender.sendMessage(ChatColor.RED + "Payments are disabled for this currency.");
+            return false;
+        }
+
+        if (target == null) {
+            sender.sendMessage(ChatColor.RED + "Player not found.");
+            return false;
+        }
+
+        if (target.getUniqueId().equals(sender.getUniqueId())) {
+            sender.sendMessage(ChatColor.RED + "You cannot pay yourself.");
+            return false;
+        }
+
+        if (!Double.isFinite(amount) || amount <= 0) {
+            sender.sendMessage(ChatColor.RED + "The amount must be greater than 0.");
+            return false;
+        }
+
+        if (!decimals && amount != Math.floor(amount)) {
+            sender.sendMessage(ChatColor.RED + "This currency does not support decimal amounts.");
+            return false;
+        }
+
+        double senderBalance = getBalance(sender.getUniqueId());
+        if (senderBalance < amount) {
+            sender.sendMessage(ChatColor.RED + "You do not have enough " + name + ".");
+            return false;
+        }
+
+        double targetMax = getMaxBalance(target.getUniqueId());
+        double targetBalance = getBalance(target.getUniqueId());
+        if (targetMax > 0 && targetBalance + amount > targetMax) {
+            sender.sendMessage(ChatColor.RED + target.getName() + " cannot receive this amount (exceeds maximum balance).");
+            return false;
+        }
+
+        double newSenderBalance = BigDecimal.valueOf(senderBalance)
+                .subtract(BigDecimal.valueOf(amount))
+                .doubleValue();
+        double newTargetBalance = BigDecimal.valueOf(targetBalance)
+                .add(BigDecimal.valueOf(amount))
+                .doubleValue();
+
+        if (!decimals) {
+            newSenderBalance = Math.floor(newSenderBalance);
+            newTargetBalance = Math.floor(newTargetBalance);
+        }
+
+        String senderBase = "balances." + sender.getUniqueId();
+        config.set(senderBase + ".name", sender.getName());
+        config.set(senderBase + ".balance", newSenderBalance);
+
+        String targetBase = "balances." + target.getUniqueId();
+        config.set(targetBase + ".name", target.getName());
+        config.set(targetBase + ".balance", newTargetBalance);
+
+        save();
+
+        sender.sendMessage(ChatColor.GREEN + "You paid " + target.getName() + " " + formatNumber(amount) + " " + name + ".");
+        target.sendMessage(ChatColor.GREEN + "You received " + formatNumber(amount) + " " + name + " from " + sender.getName() + ".");
+        return true;
     }
 
     public boolean hasExchangeRate(String targetId) {

@@ -259,7 +259,7 @@ public final class SimpleCurrencies extends JavaPlugin {
         sender.sendMessage(ChatColor.GREEN + "=== " + ChatColor.GRAY + "SimpleCurrencies Commands" + ChatColor.GREEN + " ===");
         sender.sendMessage(ChatColor.GRAY + "/sc reload <currency|all>");
         sender.sendMessage(ChatColor.GRAY + "/sc rate <set|get|remove|list>");
-        sender.sendMessage(ChatColor.GRAY + "/<currency> give | remove | balance | wipe | transfer");
+        sender.sendMessage(ChatColor.GRAY + "/<currency> give | remove | balance | wipe | transfer | pay");
     }
 
     private void sendRateHelp(CommandSender sender) {

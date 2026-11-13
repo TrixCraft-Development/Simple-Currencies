@@ -1,8 +1,31 @@
 name: SimpleCurrencies
-version: '1.3'
+version: '1.4'
 main: de.nitrox.SimpleCurrencies.SimpleCurrencies
 api-version: '1.21'
 load: STARTUP
 authors: [ Nitrox_XD ]
 description: A multi Currencies Plugin
 softdepend: [PlaceholderAPI]
+
+permissions:
+  simplecurrencies.pay:
+    description: Allows players to pay other players with currency
+    default: true
+  simplecurrencies.give:
+    description: Allows giving currency to a player
+    default: op
+  simplecurrencies.remove:
+    description: Allows removing currency from a player
+    default: op
+  simplecurrencies.wipe:
+    description: Allows wiping all balances in a currency
+    default: op
+  simplecurrencies.transfer:
+    description: Allows transferring balances to another currency
+    default: op
+  simplecurrencies.reload:
+    description: Allows reloading currency configurations
+    default: op
+  simplecurrencies.rate:
+    description: Allows configuring currency exchange rates
+    default: op
