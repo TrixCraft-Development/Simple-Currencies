@@ -1,13 +1,16 @@
 name: SimpleCurrencies
-version: '1.4'
+version: '1.5'
 main: de.nitrox.SimpleCurrencies.SimpleCurrencies
 api-version: '1.21'
 load: STARTUP
 authors: [ Nitrox_XD ]
 description: A multi Currencies Plugin
-softdepend: [PlaceholderAPI]
+softdepend: [PlaceholderAPI, Vault]
 
 permissions:
+  simplecurrencies.import:
+    description: Allows importing balances from external economies (e.g. Vault)
+    default: op
   simplecurrencies.pay:
     description: Allows players to pay other players with currency
     default: true

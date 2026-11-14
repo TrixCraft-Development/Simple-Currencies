@@ -5,6 +5,7 @@ import dev.jorel.commandapi.CommandAPIPaperConfig;
 import dev.jorel.commandapi.CommandAPICommand;
 import dev.jorel.commandapi.arguments.Argument;
 import dev.jorel.commandapi.arguments.ArgumentSuggestions;
+import dev.jorel.commandapi.arguments.BooleanArgument;
 import dev.jorel.commandapi.arguments.DoubleArgument;
 import dev.jorel.commandapi.arguments.StringArgument;
 import org.bukkit.Bukkit;
@@ -61,7 +62,7 @@ public final class SimpleCurrencies extends JavaPlugin {
     private void registerMainCommand() {
 
         new CommandAPICommand("simplecurrencies")
-                .withAliases("sc")
+                .withAliases("sc", "simplecurrencys")
                 .executes((sender, args) -> { sendHelp(sender); })
 
                 // /sc reload <currency|all>
@@ -96,6 +97,9 @@ public final class SimpleCurrencies extends JavaPlugin {
 
                 // /sc rate <set|get|remove|list>
                 .withSubcommand(buildRateCommand())
+
+                // /sc import Vault <currency> [rate] [clearVault]
+                .withSubcommand(buildImportCommand())
 
                 // /sc help
                 .withSubcommand(
@@ -255,10 +259,78 @@ public final class SimpleCurrencies extends JavaPlugin {
         }
     }
 
+    private CommandAPICommand buildImportCommand() {
+        return new CommandAPICommand("import")
+                .withPermission("simplecurrencies.import")
+                .withArguments(
+                        new StringArgument("source")
+                                .replaceSuggestions(ArgumentSuggestions.strings("Vault")),
+                        currencyArgument("currency")
+                )
+                .withOptionalArguments(
+                        new DoubleArgument("rate"),
+                        new BooleanArgument("clearVault")
+                )
+                .executes((sender, args) -> {
+                    String source = (String) args.get("source");
+                    if (!source.equalsIgnoreCase("vault")) {
+                        sender.sendMessage(ChatColor.RED + "Unknown import source: " + source + ". Supported sources: Vault");
+                        return;
+                    }
+
+                    if (Bukkit.getPluginManager().getPlugin("Vault") == null) {
+                        sender.sendMessage(ChatColor.RED + "Vault plugin is not installed on this server.");
+                        return;
+                    }
+
+                    String currencyId = (String) args.get("currency");
+                    CurrencySystemInstance target = resolveCurrency(sender, currencyId);
+                    if (target == null) return;
+
+                    Double rateArg = (Double) args.get("rate");
+                    double rate;
+                    if (rateArg != null) {
+                        if (!CurrencySystemInstance.isValidRate(rateArg)) {
+                            sender.sendMessage(ChatColor.RED + "Exchange rate must be greater than 0.");
+                            return;
+                        }
+                        rate = rateArg;
+                    } else {
+                        Double configured = target.getConfiguredExchangeRate("vault");
+                        rate = configured != null ? configured : 1.0;
+                    }
+
+                    Boolean clearVaultArg = (Boolean) args.get("clearVault");
+                    boolean clearVault = clearVaultArg != null && clearVaultArg;
+
+                    sender.sendMessage(ChatColor.YELLOW + "Starting economy import from Vault into " + target.getId() + "...");
+
+                    VaultImporter.ImportResult result = target.importFromVault(rate, clearVault);
+
+                    if (!result.isSuccess()) {
+                        sender.sendMessage(ChatColor.RED + "Import failed: " + result.getErrorMessage());
+                        return;
+                    }
+
+                    sender.sendMessage(
+                            ChatColor.GREEN + "Successfully imported " + result.getPlayersImported()
+                                    + " player(s) from " + result.getEconomyName() + " into " + target.getId()
+                                    + " (rate: 1 Vault = " + CurrencySystemInstance.formatRate(rate) + " " + target.getId()
+                                    + ", total added: " + target.formatNumber(result.getTotalImportedAmount())
+                                    + " " + target.getName() + ")."
+                    );
+
+                    if (clearVault) {
+                        sender.sendMessage(ChatColor.YELLOW + "Vault balances were cleared for imported players.");
+                    }
+                });
+    }
+
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(ChatColor.GREEN + "=== " + ChatColor.GRAY + "SimpleCurrencies Commands" + ChatColor.GREEN + " ===");
         sender.sendMessage(ChatColor.GRAY + "/sc reload <currency|all>");
         sender.sendMessage(ChatColor.GRAY + "/sc rate <set|get|remove|list>");
+        sender.sendMessage(ChatColor.GRAY + "/sc import Vault <currency> [rate] [clearVault]");
         sender.sendMessage(ChatColor.GRAY + "/<currency> give | remove | balance | wipe | transfer | pay");
     }
 

@@ -400,4 +400,8 @@ public class CurrencySystemInstance {
         save();
         target.save();
     }
+
+    public VaultImporter.ImportResult importFromVault(double rate, boolean clearVault) {
+        return VaultImporter.importVault(plugin, this, rate, clearVault);
+    }
 }
