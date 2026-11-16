@@ -66,6 +66,8 @@ public class CurrencySystemManager {
                         sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " wipe");
                         sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " transfer <system> [rate]");
                         sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " pay <player> <amount>");
+                        sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " withdraw <amount>");
+                        sender.sendMessage(ChatColor.GRAY + "/" + system.getCommand() + " deposit");
                     }
                 })
                 .withSubcommand(new CommandAPICommand("give")
@@ -201,6 +203,30 @@ public class CurrencySystemManager {
 
                             double amount = (double) args.get("amount");
                             system.pay(player, target, amount);
+                        })
+                )
+                .withSubcommand(new CommandAPICommand("withdraw")
+                        .withPermission("simplecurrencies.withdraw")
+                        .withArguments(new DoubleArgument("amount"))
+                        .executes((sender, args) -> {
+                            if (!(sender instanceof Player player)) {
+                                sender.sendMessage(ChatColor.RED + "Only players can use this command.");
+                                return;
+                            }
+
+                            double amount = (double) args.get("amount");
+                            system.withdraw(player, amount);
+                        })
+                )
+                .withSubcommand(new CommandAPICommand("deposit")
+                        .withPermission("simplecurrencies.deposit")
+                        .executes((sender, args) -> {
+                            if (!(sender instanceof Player player)) {
+                                sender.sendMessage(ChatColor.RED + "Only players can use this command.");
+                                return;
+                            }
+
+                            system.depositHeldItem(player);
                         })
                 )
                 .register();

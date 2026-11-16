@@ -10,6 +10,17 @@ decimals: false
 # Can players pay each other using this currency?
 pay-enabled: true
 
+# Withdraw currency into a physical item (banknote)
+# Placeholders for display-name and lore: %amount%, %currency%, %player%
+withdraw:
+  enabled: false
+  item: "PAPER"
+  display-name: "&a%amount% %currency%"
+  lore:
+    - "&7Value: &e%amount% %currency%"
+    - "&7Withdrawn by: &f%player%"
+    - "&7Right-click to redeem"
+
 # Balance new players start with
 start-balance: 0
 

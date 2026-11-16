@@ -331,7 +331,7 @@ public final class SimpleCurrencies extends JavaPlugin {
         sender.sendMessage(ChatColor.GRAY + "/sc reload <currency|all>");
         sender.sendMessage(ChatColor.GRAY + "/sc rate <set|get|remove|list>");
         sender.sendMessage(ChatColor.GRAY + "/sc import Vault <currency> [rate] [clearVault]");
-        sender.sendMessage(ChatColor.GRAY + "/<currency> give | remove | balance | wipe | transfer | pay");
+        sender.sendMessage(ChatColor.GRAY + "/<currency> give | remove | balance | wipe | transfer | pay | withdraw | deposit");
     }
 
     private void sendRateHelp(CommandSender sender) {

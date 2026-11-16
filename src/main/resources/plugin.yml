@@ -1,5 +1,5 @@
 name: SimpleCurrencies
-version: '1.5'
+version: '1.6'
 main: de.nitrox.SimpleCurrencies.SimpleCurrencies
 api-version: '1.21'
 load: STARTUP
@@ -13,6 +13,12 @@ permissions:
     default: op
   simplecurrencies.pay:
     description: Allows players to pay other players with currency
+    default: true
+  simplecurrencies.withdraw:
+    description: Allows players to withdraw currency into an item
+    default: true
+  simplecurrencies.deposit:
+    description: Allows players to deposit withdrawn currency items
     default: true
   simplecurrencies.give:
     description: Allows giving currency to a player

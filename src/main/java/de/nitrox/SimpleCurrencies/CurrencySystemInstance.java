@@ -5,7 +5,13 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,7 +29,14 @@ public class CurrencySystemInstance {
     private final boolean decimals;
     private final String name;
 
+    private static final String PDC_CURRENCY_KEY = "currency_id";
+    private static final String PDC_AMOUNT_KEY = "withdraw_amount";
+
     private boolean payEnabled = true;
+    private boolean withdrawEnabled = false;
+    private Material withdrawMaterial = Material.PAPER;
+    private String withdrawDisplayName = "&a%amount% %currency%";
+    private List<String> withdrawLore = new ArrayList<>();
     private List<String> disabledWorlds = new ArrayList<>();
     private final Map<String, Double> exchangeRates = new LinkedHashMap<>();
 
@@ -165,6 +178,45 @@ public class CurrencySystemInstance {
             this.payEnabled = true;
         }
 
+        if (config.contains("withdraw.enabled")) {
+            this.withdrawEnabled = config.getBoolean("withdraw.enabled", false);
+        } else if (config.contains("withdraw-enabled")) {
+            this.withdrawEnabled = config.getBoolean("withdraw-enabled", false);
+        } else {
+            this.withdrawEnabled = false;
+        }
+
+        String rawMaterial = config.getString(
+                "withdraw.item",
+                config.getString("withdraw.material", config.getString("withdraw-item", "PAPER"))
+        );
+        Material matched = rawMaterial != null ? Material.matchMaterial(rawMaterial.trim()) : null;
+        if (matched == null || matched.isAir() || !matched.isItem()) {
+            plugin.getLogger().warning(
+                    "Invalid withdraw item '" + rawMaterial + "' in " + id + ".yml; falling back to PAPER."
+            );
+            this.withdrawMaterial = Material.PAPER;
+        } else {
+            this.withdrawMaterial = matched;
+        }
+
+        this.withdrawDisplayName = config.getString(
+                "withdraw.display-name",
+                config.getString("withdraw.name", config.getString("withdraw-display-name", "&a%amount% %currency%"))
+        );
+
+        if (config.contains("withdraw.lore")) {
+            this.withdrawLore = new ArrayList<>(config.getStringList("withdraw.lore"));
+        } else if (config.contains("withdraw-lore")) {
+            this.withdrawLore = new ArrayList<>(config.getStringList("withdraw-lore"));
+        } else {
+            this.withdrawLore = new ArrayList<>(List.of(
+                    "&7Value: &e%amount% %currency%",
+                    "&7Withdrawn by: &f%player%",
+                    "&8Right-click to redeem"
+            ));
+        }
+
         disabledWorlds = config.getStringList("disabled-worlds");
         if (disabledWorlds == null) {
             disabledWorlds = new ArrayList<>();
@@ -300,6 +352,220 @@ public class CurrencySystemInstance {
 
         sender.sendMessage(ChatColor.GREEN + "You paid " + target.getName() + " " + formatNumber(amount) + " " + name + ".");
         target.sendMessage(ChatColor.GREEN + "You received " + formatNumber(amount) + " " + name + " from " + sender.getName() + ".");
+        return true;
+    }
+
+    public boolean isWithdrawEnabled() {
+        return withdrawEnabled;
+    }
+
+    public void setWithdrawEnabled(boolean withdrawEnabled) {
+        this.withdrawEnabled = withdrawEnabled;
+        config.set("withdraw.enabled", withdrawEnabled);
+        save();
+    }
+
+    public Material getWithdrawMaterial() {
+        return withdrawMaterial;
+    }
+
+    public String getWithdrawDisplayName() {
+        return withdrawDisplayName;
+    }
+
+    public List<String> getWithdrawLore() {
+        return Collections.unmodifiableList(withdrawLore);
+    }
+
+    public static NamespacedKey getCurrencyKey(SimpleCurrencies plugin) {
+        return new NamespacedKey(plugin, PDC_CURRENCY_KEY);
+    }
+
+    public static NamespacedKey getAmountKey(SimpleCurrencies plugin) {
+        return new NamespacedKey(plugin, PDC_AMOUNT_KEY);
+    }
+
+    public static String extractWithdrawCurrencyId(SimpleCurrencies plugin, ItemStack item) {
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) return null;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return null;
+        PersistentDataContainer pdc = meta.getPersistentDataContainer();
+        return pdc.get(getCurrencyKey(plugin), PersistentDataType.STRING);
+    }
+
+    public static Double extractWithdrawAmount(SimpleCurrencies plugin, ItemStack item) {
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) return null;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return null;
+        PersistentDataContainer pdc = meta.getPersistentDataContainer();
+        return pdc.get(getAmountKey(plugin), PersistentDataType.DOUBLE);
+    }
+
+    public ItemStack createWithdrawItem(double amount, String playerName) {
+        ItemStack item = new ItemStack(withdrawMaterial, 1);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            if (withdrawDisplayName != null && !withdrawDisplayName.isEmpty()) {
+                meta.setDisplayName(formatWithdrawText(withdrawDisplayName, amount, playerName));
+            }
+
+            if (withdrawLore != null && !withdrawLore.isEmpty()) {
+                List<String> formattedLore = new ArrayList<>(withdrawLore.size());
+                for (String line : withdrawLore) {
+                    formattedLore.add(formatWithdrawText(line, amount, playerName));
+                }
+                meta.setLore(formattedLore);
+            }
+
+            PersistentDataContainer pdc = meta.getPersistentDataContainer();
+            pdc.set(getCurrencyKey(plugin), PersistentDataType.STRING, id.toLowerCase(Locale.ROOT));
+            pdc.set(getAmountKey(plugin), PersistentDataType.DOUBLE, amount);
+
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    private String formatWithdrawText(String template, double amount, String playerName) {
+        String formattedAmount = formatNumber(amount);
+        String safePlayer = playerName != null ? playerName : "Unknown";
+        String replaced = template
+                .replace("%amount%", formattedAmount)
+                .replace("{amount}", formattedAmount)
+                .replace("%currency%", name)
+                .replace("{currency}", name)
+                .replace("%currency_id%", id)
+                .replace("{currency_id}", id)
+                .replace("%player%", safePlayer)
+                .replace("{player}", safePlayer);
+        return ChatColor.translateAlternateColorCodes('&', replaced);
+    }
+
+    public boolean withdraw(Player player, double amount) {
+        if (!withdrawEnabled) {
+            player.sendMessage(ChatColor.RED + "Withdrawing is disabled for this currency.");
+            return false;
+        }
+
+        if (!Double.isFinite(amount) || amount <= 0) {
+            player.sendMessage(ChatColor.RED + "The amount must be greater than 0.");
+            return false;
+        }
+
+        if (!decimals && amount != Math.floor(amount)) {
+            player.sendMessage(ChatColor.RED + "This currency does not support decimal amounts.");
+            return false;
+        }
+
+        double currentBalance = getBalance(player.getUniqueId());
+        if (currentBalance < amount) {
+            player.sendMessage(ChatColor.RED + "You do not have enough " + name + ".");
+            return false;
+        }
+
+        double newBalance = BigDecimal.valueOf(currentBalance)
+                .subtract(BigDecimal.valueOf(amount))
+                .doubleValue();
+        if (!decimals) {
+            newBalance = Math.floor(newBalance);
+        }
+
+        String base = "balances." + player.getUniqueId();
+        config.set(base + ".name", player.getName());
+        config.set(base + ".balance", Math.max(0, newBalance));
+        save();
+
+        ItemStack item = createWithdrawItem(amount, player.getName());
+        Map<Integer, ItemStack> leftover = player.getInventory().addItem(item);
+        if (!leftover.isEmpty()) {
+            for (ItemStack drop : leftover.values()) {
+                player.getWorld().dropItemNaturally(player.getLocation(), drop);
+            }
+            player.sendMessage(
+                    ChatColor.YELLOW + "Your inventory is full; the withdrawn item was dropped at your feet."
+            );
+        }
+
+        player.sendMessage(
+                ChatColor.GREEN + "Withdrew " + formatNumber(amount) + " " + name + "."
+        );
+        return true;
+    }
+
+    public boolean depositHeldItem(Player player) {
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        if (extractWithdrawCurrencyId(plugin, mainHand) != null) {
+            return redeemWithdrawItem(player, mainHand, true);
+        }
+
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        if (extractWithdrawCurrencyId(plugin, offHand) != null) {
+            return redeemWithdrawItem(player, offHand, true);
+        }
+
+        player.sendMessage(ChatColor.RED + "You must hold a withdrawn " + name + " item in your hand to deposit it.");
+        return false;
+    }
+
+    public boolean redeemWithdrawItem(Player player, ItemStack item, boolean redeemFullStack) {
+        String itemCurrencyId = extractWithdrawCurrencyId(plugin, item);
+        Double unitAmount = extractWithdrawAmount(plugin, item);
+
+        if (itemCurrencyId == null || unitAmount == null || !Double.isFinite(unitAmount) || unitAmount <= 0) {
+            player.sendMessage(ChatColor.RED + "You are not holding a valid currency item.");
+            return false;
+        }
+
+        if (!itemCurrencyId.equalsIgnoreCase(this.id)) {
+            player.sendMessage(
+                    ChatColor.RED + "This item belongs to currency '" + itemCurrencyId + "', not '" + this.id + "'."
+            );
+            return false;
+        }
+
+        int stackAmount = item.getAmount();
+        if (stackAmount <= 0) return false;
+
+        int maxCountToRedeem = redeemFullStack ? stackAmount : 1;
+        double currentBalance = getBalance(player.getUniqueId());
+        double maxBalance = getMaxBalance(player.getUniqueId());
+
+        int countToRedeem = 0;
+        BigDecimal runningBalance = BigDecimal.valueOf(currentBalance);
+        BigDecimal unitDecimal = BigDecimal.valueOf(unitAmount);
+
+        for (int i = 0; i < maxCountToRedeem; i++) {
+            BigDecimal nextBalance = runningBalance.add(unitDecimal);
+            if (maxBalance > 0 && nextBalance.doubleValue() > maxBalance) {
+                break;
+            }
+            runningBalance = nextBalance;
+            countToRedeem++;
+        }
+
+        if (countToRedeem == 0) {
+            player.sendMessage(
+                    ChatColor.RED + "You cannot redeem this item because it would exceed your maximum balance."
+            );
+            return false;
+        }
+
+        double totalDeposited = unitDecimal.multiply(BigDecimal.valueOf(countToRedeem)).doubleValue();
+        double finalBalance = runningBalance.doubleValue();
+        if (!decimals) {
+            finalBalance = Math.floor(finalBalance);
+        }
+
+        item.setAmount(stackAmount - countToRedeem);
+
+        String base = "balances." + player.getUniqueId();
+        config.set(base + ".name", player.getName());
+        config.set(base + ".balance", finalBalance);
+        save();
+
+        player.sendMessage(
+                ChatColor.GREEN + "Deposited " + formatNumber(totalDeposited) + " " + name + " into your account."
+        );
         return true;
     }
 
