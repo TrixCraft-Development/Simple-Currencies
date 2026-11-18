@@ -221,7 +221,9 @@ public class VaultImporter {
             totalImportedAmount += converted;
         }
 
-        target.save();
+        if (imported > 0) {
+            target.save();
+        }
 
         return ImportResult.success(economy.getName(), scanned, imported,
                 totalVaultAmount, totalImportedAmount, rate);

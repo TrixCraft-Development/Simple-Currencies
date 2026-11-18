@@ -96,6 +96,20 @@ disabled-worlds:
 exchange-rates:
   points: 0.5
 
+# Automatically import/transfer balances into this currency on an interval
+auto-import:
+  enabled: false
+  # Source to import from ("Vault" or another SimpleCurrencies currency ID)
+  source: "Vault"
+  # Interval in seconds (or duration string like "1m", "60s", "5m")
+  interval: 60
+  # Exchange rate (1 source unit = <rate> of this currency)
+  rate: 1.0
+  # Delete/clear balances from the source (Vault or source currency) after transferring
+  clear-source: true
+  # Log a console message when balances are transferred
+  log-console: true
+
 balances:
   00000000-0000-0000-0000-000000000000:
     name: "Player"

@@ -40,6 +40,13 @@ public class CurrencySystemInstance {
     private List<String> disabledWorlds = new ArrayList<>();
     private final Map<String, Double> exchangeRates = new LinkedHashMap<>();
 
+    private boolean autoImportEnabled = false;
+    private String autoImportSource = "Vault";
+    private long autoImportIntervalSeconds = 60L;
+    private Double autoImportRate = null;
+    private boolean autoImportClearSource = true;
+    private boolean autoImportLogConsole = true;
+
     public CurrencySystemInstance(SimpleCurrencies plugin, String id, String name, File file) {
         this.plugin = plugin;
         this.file = file;
@@ -235,6 +242,121 @@ public class CurrencySystemInstance {
                 }
                 exchangeRates.put(targetKey.toLowerCase(Locale.ROOT), rate);
             }
+        }
+
+        loadAutoImportSettings();
+    }
+
+    private void loadAutoImportSettings() {
+        ConfigurationSection section = config.getConfigurationSection("auto-import");
+        if (section == null) {
+            section = config.getConfigurationSection("vault-auto-import");
+        }
+        if (section == null) {
+            section = config.getConfigurationSection("vault-import");
+        }
+
+        if (section == null) {
+            this.autoImportEnabled = config.getBoolean("auto-import-enabled", false);
+            this.autoImportSource = "Vault";
+            this.autoImportIntervalSeconds = 60L;
+            this.autoImportRate = null;
+            this.autoImportClearSource = true;
+            this.autoImportLogConsole = true;
+            return;
+        }
+
+        this.autoImportEnabled = section.getBoolean("enabled", false);
+
+        String configuredSource = section.getString("source", "Vault");
+        this.autoImportSource = (configuredSource == null || configuredSource.isBlank())
+                ? "Vault"
+                : configuredSource.trim();
+
+        Object rawInterval = section.get("interval", section.get("interval-seconds", 60));
+        this.autoImportIntervalSeconds = parseIntervalSeconds(rawInterval, 60L);
+
+        if (section.contains("rate")) {
+            double r = section.getDouble("rate", -1);
+            if (isValidRate(r)) {
+                this.autoImportRate = r;
+            } else {
+                plugin.getLogger().warning(
+                        "Invalid auto-import rate in " + id + ".yml: " + r + "; falling back to default rate."
+                );
+                this.autoImportRate = null;
+            }
+        } else {
+            this.autoImportRate = null;
+        }
+
+        if (section.contains("clear-source")) {
+            this.autoImportClearSource = section.getBoolean("clear-source", true);
+        } else if (section.contains("clear-vault")) {
+            this.autoImportClearSource = section.getBoolean("clear-vault", true);
+        } else if (section.contains("delete-vault")) {
+            this.autoImportClearSource = section.getBoolean("delete-vault", true);
+        } else if (section.contains("delete-source")) {
+            this.autoImportClearSource = section.getBoolean("delete-source", true);
+        } else {
+            this.autoImportClearSource = true;
+        }
+
+        if (section.contains("log-console")) {
+            this.autoImportLogConsole = section.getBoolean("log-console", true);
+        } else if (section.contains("log")) {
+            this.autoImportLogConsole = section.getBoolean("log", true);
+        } else {
+            this.autoImportLogConsole = true;
+        }
+    }
+
+    public static long parseIntervalSeconds(Object rawInterval, long defaultSeconds) {
+        if (rawInterval == null) return defaultSeconds;
+        if (rawInterval instanceof Number num) {
+            long val = num.longValue();
+            return val > 0 ? val : defaultSeconds;
+        }
+
+        String text = rawInterval.toString().trim().toLowerCase(Locale.ROOT);
+        if (text.isEmpty()) return defaultSeconds;
+
+        long multiplier = 1L;
+        String numberPart = text;
+
+        if (text.endsWith("seconds") || text.endsWith("second")) {
+            numberPart = text.replaceAll("(seconds|second)$", "").trim();
+        } else if (text.endsWith("secs") || text.endsWith("sec")) {
+            numberPart = text.replaceAll("(secs|sec)$", "").trim();
+        } else if (text.endsWith("s")) {
+            numberPart = text.substring(0, text.length() - 1).trim();
+        } else if (text.endsWith("minutes") || text.endsWith("minute")) {
+            multiplier = 60L;
+            numberPart = text.replaceAll("(minutes|minute)$", "").trim();
+        } else if (text.endsWith("mins") || text.endsWith("min")) {
+            multiplier = 60L;
+            numberPart = text.replaceAll("(mins|min)$", "").trim();
+        } else if (text.endsWith("m")) {
+            multiplier = 60L;
+            numberPart = text.substring(0, text.length() - 1).trim();
+        } else if (text.endsWith("hours") || text.endsWith("hour")) {
+            multiplier = 3600L;
+            numberPart = text.replaceAll("(hours|hour)$", "").trim();
+        } else if (text.endsWith("hrs") || text.endsWith("hr")) {
+            multiplier = 3600L;
+            numberPart = text.replaceAll("(hrs|hr)$", "").trim();
+        } else if (text.endsWith("h")) {
+            multiplier = 3600L;
+            numberPart = text.substring(0, text.length() - 1).trim();
+        }
+
+        try {
+            double parsed = Double.parseDouble(numberPart);
+            if (!Double.isFinite(parsed) || parsed <= 0) return defaultSeconds;
+            long seconds = Math.round(parsed * multiplier);
+            return Math.max(1L, seconds);
+        } catch (NumberFormatException e) {
+            return defaultSeconds;
         }
     }
 
@@ -669,5 +791,144 @@ public class CurrencySystemInstance {
 
     public VaultImporter.ImportResult importFromVault(double rate, boolean clearVault) {
         return VaultImporter.importVault(plugin, this, rate, clearVault);
+    }
+
+    public boolean isAutoImportEnabled() {
+        return autoImportEnabled;
+    }
+
+    public String getAutoImportSource() {
+        return autoImportSource;
+    }
+
+    public long getAutoImportIntervalSeconds() {
+        return autoImportIntervalSeconds;
+    }
+
+    public double getEffectiveAutoImportRate() {
+        if (autoImportRate != null && isValidRate(autoImportRate)) {
+            return autoImportRate;
+        }
+        Double configuredOnTarget = getConfiguredExchangeRate(autoImportSource);
+        if (configuredOnTarget != null && isValidRate(configuredOnTarget)) {
+            return configuredOnTarget;
+        }
+        if (plugin.getManager() != null) {
+            CurrencySystemInstance sourceSystem = plugin.getManager().get(autoImportSource);
+            if (sourceSystem != null) {
+                Double configuredOnSource = sourceSystem.getConfiguredExchangeRate(this.id);
+                if (configuredOnSource != null && isValidRate(configuredOnSource)) {
+                    return configuredOnSource;
+                }
+            }
+        }
+        return 1.0;
+    }
+
+    public boolean isAutoImportClearSource() {
+        return autoImportClearSource;
+    }
+
+    public boolean isAutoImportLogConsole() {
+        return autoImportLogConsole;
+    }
+
+    public void runAutoImport() {
+        if (!autoImportEnabled) {
+            return;
+        }
+
+        double rate = getEffectiveAutoImportRate();
+
+        if (autoImportSource.equalsIgnoreCase("vault")) {
+            if (Bukkit.getPluginManager().getPlugin("Vault") == null) {
+                return;
+            }
+
+            VaultImporter.ImportResult result = importFromVault(rate, autoImportClearSource);
+            if (result.isSuccess() && result.getPlayersImported() > 0 && autoImportLogConsole) {
+                plugin.getLogger().info(
+                        "[Auto-Import] Transferred " + result.getPlayersImported()
+                                + " player(s) from Vault (" + result.getEconomyName() + ") into " + id
+                                + " (rate: 1 Vault = " + formatRate(rate) + " " + id
+                                + ", total added: " + formatNumber(result.getTotalImportedAmount()) + " " + name
+                                + (autoImportClearSource ? ", Vault cleared" : "") + ")."
+                );
+            }
+            return;
+        }
+
+        if (plugin.getManager() == null) {
+            return;
+        }
+
+        CurrencySystemInstance sourceSystem = plugin.getManager().get(autoImportSource);
+        if (sourceSystem == null || sourceSystem.getId().equalsIgnoreCase(this.id)) {
+            return;
+        }
+
+        ConfigurationSection section = sourceSystem.getConfig().getConfigurationSection("balances");
+        if (section == null) {
+            return;
+        }
+
+        BigDecimal rateDecimal = BigDecimal.valueOf(rate);
+        int transferredPlayers = 0;
+        double totalAdded = 0.0;
+
+        for (String key : new ArrayList<>(section.getKeys(false))) {
+            UUID uuid;
+            try {
+                uuid = UUID.fromString(key);
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+
+            double amount = section.getDouble(key + ".balance", 0);
+            if (!Double.isFinite(amount) || amount <= 0) {
+                continue;
+            }
+
+            String playerName = section.getString(key + ".name", "Unknown");
+            double converted = BigDecimal.valueOf(amount).multiply(rateDecimal).doubleValue();
+            double existing = getBalance(uuid);
+            double newBalance = BigDecimal.valueOf(existing).add(BigDecimal.valueOf(converted)).doubleValue();
+
+            double maxBalance = getMaxBalance(uuid);
+            if (maxBalance > 0) {
+                newBalance = Math.min(newBalance, maxBalance);
+            }
+            if (!decimals) {
+                newBalance = Math.floor(newBalance);
+            }
+
+            String base = "balances." + uuid;
+            config.set(base + ".name", playerName);
+            config.set(base + ".balance", newBalance);
+
+            if (autoImportClearSource) {
+                sourceSystem.getConfig().set("balances." + key + ".balance", 0);
+            }
+
+            transferredPlayers++;
+            totalAdded += converted;
+        }
+
+        if (transferredPlayers > 0) {
+            save();
+            if (autoImportClearSource) {
+                sourceSystem.save();
+            }
+
+            if (autoImportLogConsole) {
+                plugin.getLogger().info(
+                        "[Auto-Import] Transferred " + transferredPlayers
+                                + " player(s) from " + sourceSystem.getId() + " into " + id
+                                + " (rate: 1 " + sourceSystem.getId() + " = " + formatRate(rate) + " " + id
+                                + ", total added: " + formatNumber(totalAdded) + " " + name
+                                + (autoImportClearSource ? ", source cleared" : "") + ")."
+                );
+            }
+        }
     }
 }

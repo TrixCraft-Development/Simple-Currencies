@@ -5,23 +5,29 @@ import dev.jorel.commandapi.arguments.ArgumentSuggestions;
 import dev.jorel.commandapi.arguments.DoubleArgument;
 import dev.jorel.commandapi.arguments.EntitySelectorArgument;
 import dev.jorel.commandapi.arguments.StringArgument;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class CurrencySystemManager {
 
     private final SimpleCurrencies plugin;
     private final Map<String, CurrencySystemInstance> systems = new HashMap<>();
+    private final List<BukkitTask> autoImportTasks = new ArrayList<>();
 
     public CurrencySystemManager(SimpleCurrencies plugin) {
         this.plugin = plugin;
     }
 
     public void loadSystems() {
+        stopAutoImportTasks();
         systems.clear();
 
         File folder = plugin.getDataFolder();
@@ -47,6 +53,44 @@ public class CurrencySystemManager {
             registerCurrencyCommand(system);
 
             plugin.getLogger().info("Loaded currency: " + id);
+        }
+
+        startAutoImportTasks();
+    }
+
+    public void stopAutoImportTasks() {
+        for (BukkitTask task : autoImportTasks) {
+            if (task != null && !task.isCancelled()) {
+                task.cancel();
+            }
+        }
+        autoImportTasks.clear();
+    }
+
+    private void startAutoImportTasks() {
+        for (CurrencySystemInstance system : systems.values()) {
+            if (!system.isAutoImportEnabled()) {
+                continue;
+            }
+
+            long intervalSeconds = system.getAutoImportIntervalSeconds();
+            long intervalTicks = Math.max(20L, intervalSeconds * 20L);
+
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(
+                    plugin,
+                    system::runAutoImport,
+                    intervalTicks,
+                    intervalTicks
+            );
+            autoImportTasks.add(task);
+
+            plugin.getLogger().info(
+                    "Scheduled auto-import for currency '" + system.getId()
+                            + "' from '" + system.getAutoImportSource()
+                            + "' every " + intervalSeconds + "s (rate: "
+                            + CurrencySystemInstance.formatRate(system.getEffectiveAutoImportRate())
+                            + ", clear-source: " + system.isAutoImportClearSource() + ")."
+            );
         }
     }
 

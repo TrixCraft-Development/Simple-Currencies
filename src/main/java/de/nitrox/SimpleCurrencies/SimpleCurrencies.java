@@ -345,6 +345,7 @@ public final class SimpleCurrencies extends JavaPlugin {
     @Override
     public void onDisable() {
         if (manager != null) {
+            manager.stopAutoImportTasks();
             manager.getAll().values().forEach(CurrencySystemInstance::save);
         }
 
